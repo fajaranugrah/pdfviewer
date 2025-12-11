@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #525659;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: sans-serif;
+        }
+
+        .page-container {
+            margin: 10px 0;
+            background-color: white;
+            position: relative;
+            box-shadow: 0px 2px 5px rgba(0,0,0,0.3);
+            min-height: 200px;
+            overflow: hidden;
+        }
+
+        /* Canvas dibuat block agar tidak ada celah antar tile */
+        canvas {
+            display: block;
+            width: 100%;
+        }
+
+        .textLayer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            opacity: 0.2;
+            line-height: 1.0;
+            transform-origin: 0 0;
+        }
+
+        .textLayer > span {
+            color: transparent;
+            position: absolute;
+            white-space: pre;
+            cursor: text;
+            transform-origin: 0% 0%;
+        }
+
+        ::selection {
+            background: rgba(0, 0, 255, 0.3);
+        }
+
+        .loading-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #999;
+            font-size: 14px;
+        }
+    </style>
+
+    <script src="../build/pdf.js"></script>
+</head>
+<body>
+
+<div id="pdf-holder"></div>
+
+<script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '../build/pdf.worker.js';
+
+    const pdfRenderTasks = {};
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const pdfUrl = urlParams.get('file');
+    let observer;
+
+    if (pdfUrl) {
+        initPDF(pdfUrl);
+    }
+
+    async function initPDF(url) {
+        try {
+            const loadingTask = pdfjsLib.getDocument({
+                url: url,
+                cMapUrl: 'cmaps/',
+                cMapPacked: true
+            });
+
+            const pdf = await loadingTask.promise;
+            const holder = document.getElementById('pdf-holder');
+
+            // Konfigurasi Intersection Observer
+            observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const pageNum = parseInt(entry.target.dataset.pageNum);
+                    if (entry.isIntersecting) {
+                        renderPageTiled(pdf, pageNum, entry.target);
+                    } else {
+                        clearPageContent(pageNum, entry.target);
+                    }
+                });
+            }, {
+                root: null,
+                rootMargin: '300px', // Pre-load area
+                threshold: 0.0
+            });
+
+            // Buat Placeholder
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                createPagePlaceholder(pdf, pageNum, holder);
+            }
+
+        } catch (error) {
+            console.error('Error init:', error);
+        }
+    }
+
+    async function createPagePlaceholder(pdf, pageNum, container) {
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.0 });
+
+        const screenWidth = window.innerWidth;
+        const fitScale = screenWidth / viewport.width;
+
+        const div = document.createElement("div");
+        div.className = "page-container";
+        div.dataset.pageNum = pageNum;
+
+        // Set dimensi placeholder (CSS Pixel)
+        div.style.width = Math.floor(viewport.width * fitScale) + 'px';
+        div.style.height = Math.floor(viewport.height * fitScale) + 'px';
+
+        const loading = document.createElement("div");
+        loading.className = "loading-text";
+        loading.innerText = "Loading...";
+        div.appendChild(loading);
+
+        container.appendChild(div);
+        observer.observe(div);
+    }
+
+    async function renderPageTiled(pdf, pageNum, divContainer) {
+        if (pdfRenderTasks[pageNum]) return;
+
+        try {
+            const page = await pdf.getPage(pageNum);
+
+            // 1. HITUNG SKALA (HIGH QUALITY)
+            const screenWidth = window.innerWidth;
+            const unscaledViewport = page.getViewport({ scale: 1.0 });
+            const fitScale = screenWidth / unscaledViewport.width;
+
+            // Gunakan Pixel Ratio Asli HP (misal 2.5 atau 3.0) agar teks TAJAM
+            // Jangan dibatasi 1.2 lagi.
+            let outputScale = window.devicePixelRatio || 1;
+
+            // Safety: Jika scale terlalu gila (> 3.0), batasi di 3.0
+            if (outputScale > 3.0) outputScale = 3.0;
+
+            const finalScale = fitScale * outputScale;
+            const viewport = page.getViewport({ scale: finalScale });
+
+            divContainer.innerHTML = ""; // Bersihkan loading
+
+            // 2. LOGIC TILING (MEMECAH GAMBAR)
+            // Batas aman tinggi tekstur GPU biasanya 4096px.
+            // Kita set chunk size 2048px atau 3000px agar aman.
+            const TILE_HEIGHT = 3000;
+            const totalHeight = viewport.height;
+            const totalTiles = Math.ceil(totalHeight / TILE_HEIGHT);
+
+            const tasks = []; // Untuk menyimpan semua promise render tile
+
+            // LOOP MEMBUAT POTONGAN CANVAS
+            for (let i = 0; i < totalTiles; i++) {
+                const tileDiv = document.createElement("div");
+                tileDiv.style.width = "100%";
+                // Hitung tinggi tile ini (tile terakhir mungkin lebih pendek)
+                const currentTileHeight = (i === totalTiles - 1)
+                    ? (totalHeight - (i * TILE_HEIGHT))
+                    : TILE_HEIGHT;
+
+                const canvas = document.createElement("canvas");
+                const context = canvas.getContext('2d', { alpha: false });
+
+                // Set ukuran resolusi tinggi
+                canvas.width = viewport.width;
+                canvas.height = currentTileHeight;
+
+                // Set ukuran tampilan CSS (dikembalikan ke ukuran layar)
+                canvas.style.width = "100%";
+                // Rumus: (TinggiTile / ScaleRatio)
+                canvas.style.height = (currentTileHeight / outputScale) + "px";
+
+                context.fillStyle = "white";
+                context.fillRect(0, 0, canvas.width, canvas.height);
+
+                // --- MAGIC HAPPENS HERE: GESER VIEWPORT ---
+                // Kita menggeser posisi render ke atas (negatif Y)
+                // Sehingga bagian yang tergambar di canvas ini adalah potongan yang sesuai
+                const transform = [1, 0, 0, 1, 0, -(i * TILE_HEIGHT)];
+
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport,
+                    transform: transform // Geser kamera PDF
+                };
+
+                tileDiv.appendChild(canvas);
+                divContainer.appendChild(tileDiv);
+
+                // Simpan task render
+                tasks.push(page.render(renderContext).promise);
+            }
+
+            // Simpan task utama (gabungan semua tile) agar bisa dicancel
+            const multiTaskPromise = Promise.all(tasks);
+            pdfRenderTasks[pageNum] = { cancel: () => {} }; // Dummy cancel object (Promise.all susah dicancel satu2)
+
+            await multiTaskPromise;
+            delete pdfRenderTasks[pageNum];
+
+            // 3. RENDER TEXT LAYER (Satu layer besar menumpuk di atas semua tile)
+            // Text Layer tidak kena limit GPU texture, jadi aman dibuat besar.
+            const textLayerDiv = document.createElement("div");
+            textLayerDiv.className = "textLayer";
+            // Ukuran CSS (Ukuran Layar)
+            textLayerDiv.style.width = Math.floor(viewport.width / outputScale) + 'px';
+            textLayerDiv.style.height = Math.floor(viewport.height / outputScale) + 'px';
+            divContainer.appendChild(textLayerDiv);
+
+            // Kita butuh viewport skala CSS untuk TextLayer (bukan skala Canvas HighRes)
+            const textViewport = page.getViewport({ scale: fitScale });
+
+            const textContent = await page.getTextContent();
+            pdfjsLib.renderTextLayer({
+                textContent: textContent,
+                container: textLayerDiv,
+                viewport: textViewport,
+                textDivs: []
+            });
+
+        } catch (err) {
+            console.error("Render error page " + pageNum, err);
+            delete pdfRenderTasks[pageNum];
+        }
+    }
+
+    function clearPageContent(pageNum, divContainer) {
+        // Hapus referensi task (Task cancellation kompleks di tiling,
+        // jadi kita reset DOM saja sudah cukup menghemat RAM)
+        if (pdfRenderTasks[pageNum]) {
+            delete pdfRenderTasks[pageNum];
+        }
+        divContainer.innerHTML = "<div class='loading-text'>...</div>";
+    }
+</script>
+</body>
+</html>
