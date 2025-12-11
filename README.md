@@ -40,7 +40,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("[https://jitpack.io](https://jitpack.io)") }
+        maven { url = uri("(https://jitpack.io)") }
     }
 }
 ````
@@ -53,7 +53,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url '[https://jitpack.io](https://jitpack.io)' }
+        maven { url '(https://jitpack.io)' }
     }
 }
 ```
@@ -65,7 +65,7 @@ dependencyResolutionManagement {
 ```kotlin
 dependencies {
     // Replace 'Tag' with the latest version (e.g., 1.0.0)
-    implementation("com.github.YourUsername:YourRepoName:Tag")
+    implementation("com.github.fajaranugrah:pdfviewer:Tag")
 }
 ```
 
@@ -73,7 +73,7 @@ dependencies {
 
 ```gradle
 dependencies {
-    implementation 'com.github.YourUsername:YourRepoName:Tag'
+    implementation 'com.github.fajaranugrah:pdfviewer:Tag'
 }
 ```
 
@@ -86,7 +86,7 @@ dependencies {
 Add the `PdfView` component to your XML layout.
 
 ```xml
-<com.mycustom.pdfviewer.PdfView
+<com.fajaranugrah.pdfviewer.PdfView
     android:id="@+id/pdfView"
     android:layout_width="match_parent"
     android:layout_height="match_parent" />
@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val pdfView = findViewById<com.mycustom.pdfviewer.PdfView>(R.id.pdfView)
+        val pdfView = findViewById<com.fajaranugrah.pdfviewer.PdfView>(R.id.pdfView)
 
         // Example: Loading a file from the Downloads folder
         val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "report.pdf")
