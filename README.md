@@ -103,13 +103,41 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val pdfView = findViewById<com.fajaranugrah.pdfviewer.PdfView>(R.id.pdfView)
+        val pdfView = findViewById<com.mycustom.pdfviewer.PdfView>(R.id.pdfView)
+        val progressBar = findViewById<ProgressBar>(R.id.progressBar)
 
-        // Example: Loading a file from the Downloads folder
+        // 1. Set the Listener BEFORE loading the file
+        pdfView.setOnPdfListener(object : com.mycustom.pdfviewer.PdfListener {
+            override fun onLoadSuccess() {
+                // Hide loading indicator
+                progressBar.visibility = View.GONE
+                Toast.makeText(this@MainActivity, "PDF Loaded Successfully!", Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onError(t: Throwable) {
+                // Hide loading indicator
+                progressBar.visibility = View.GONE
+
+                // Handle specific errors
+                Log.e("PDF_VIEWER", "Error: ${t.message}")
+
+                if (t.message?.contains("Password") == true) {
+                    Toast.makeText(this@MainActivity, "Password Required!", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this@MainActivity, "Failed to load PDF: ${t.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        })
+
+        // 2. Prepare the File
         val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "report.pdf")
 
+        // 3. Load the PDF
+        // The library handles permission checks automatically.
+        // If permission is missing, it will show an HTML error message in the WebView
+        // or you can implement 'requestStoragePermission' manually.
         if (file.exists()) {
-            // Load the PDF
+            progressBar.visibility = View.VISIBLE
             pdfView.loadPdf(file)
         } else {
             Toast.makeText(this, "File not found", Toast.LENGTH_SHORT).show()
