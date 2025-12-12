@@ -103,11 +103,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val pdfView = findViewById<com.mycustom.pdfviewer.PdfView>(R.id.pdfView)
+        val pdfView = findViewById<com.fajaranugrah.pdfviewer.PdfView>(R.id.pdfView)
         val progressBar = findViewById<ProgressBar>(R.id.progressBar)
 
         // 1. Set the Listener BEFORE loading the file
-        pdfView.setOnPdfListener(object : com.mycustom.pdfviewer.PdfListener {
+        pdfView.setOnPdfListener(object : com.fajaranugrah.pdfviewer.PdfListener {
             override fun onLoadSuccess() {
                 // Hide loading indicator
                 progressBar.visibility = View.GONE
