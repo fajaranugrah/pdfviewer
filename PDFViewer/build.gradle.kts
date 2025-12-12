@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.fajaranugrah.pdfviewer"
     compileSdk {
-        version = release(36)
+        version = release(35)
     }
 
     defaultConfig {
