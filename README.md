@@ -107,7 +107,7 @@ class MainActivity : AppCompatActivity() {
         val progressBar = findViewById<ProgressBar>(R.id.progressBar)
 
         // 1. Set the Listener BEFORE loading the file
-        pdfView.setOnPdfListener(object : com.fajaranugrah.pdfviewer.PdfListener {
+        pdfView.setOnPdfListener(object : com.fajaranugrah.pdfviewer.model.PdfListener {
             override fun onLoadSuccess() {
                 // Hide loading indicator
                 progressBar.visibility = View.GONE
