@@ -91,7 +91,18 @@
                 cMapPacked: true
             });
 
+            // Tambahkan Listener untuk Password (Opsional, jika kena password error)
+            loadingTask.onPassword = function (updatePassword, reason) {
+                throw new Error("Password Required");
+            };
+
             const pdf = await loadingTask.promise;
+
+            // --- JIKA SAMPAI SINI BERARTI SUKSES LOAD FILE ---
+            if (window.AndroidInterface) {
+                window.AndroidInterface.onSuccess();
+            }
+
             const holder = document.getElementById('pdf-holder');
 
             // Konfigurasi Intersection Observer
@@ -117,6 +128,15 @@
 
         } catch (error) {
             console.error('Error init:', error);
+
+            // --- KIRIM ERROR KE KOTLIN ---
+            if (window.AndroidInterface) {
+                // Kirim pesan error asli dari PDF.js
+                window.AndroidInterface.onError(error.message);
+            }
+
+            // Tampilkan pesan di layar juga (opsional)
+            document.body.innerHTML = "<h3 style='color:white; text-align:center; margin-top:50px'>Gagal Memuat PDF:<br>" + error.message + "</h3>";
         }
     }
 

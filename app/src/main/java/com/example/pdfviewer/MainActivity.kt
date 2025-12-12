@@ -7,6 +7,7 @@ import android.os.Environment
 import androidx.appcompat.app.AppCompatActivity
 import android.widget.Toast
 import com.fajaranugrah.pdfviewer.PdfView
+import com.fajaranugrah.pdfviewer.model.PdfListener
 import java.io.File
 
 class MainActivity : AppCompatActivity() {
@@ -22,6 +23,31 @@ class MainActivity : AppCompatActivity() {
 
         val pdfView = findViewById<PdfView>(R.id.myPdfView)
         val fileName = "sample.pdf"
+
+        pdfView.setOnPdfListener(object : PdfListener {
+            override fun onLoadSuccess() {
+                // Sembunyikan Loading Bar / ProgressBar jika ada
+                //progressBar.visibility = View.GONE
+                Toast.makeText(this@MainActivity, "PDF Siap Dibaca!", Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onError(t: Throwable) {
+                // Sembunyikan Loading Bar
+                //progressBar.visibility = View.GONE
+
+                // Tampilkan Error ke User
+                //Log.e("PDF_ERROR", "Gagal load: ${t.message}")
+
+                // Contoh penanganan error spesifik
+                if (t.message?.contains("Password") == true) {
+                    Toast.makeText(this@MainActivity, "PDF ini butuh Password!", Toast.LENGTH_LONG).show()
+                } else if (t.message?.contains("Invalid PDF structure") == true) {
+                    Toast.makeText(this@MainActivity, "File PDF Rusak/Corrupt", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this@MainActivity, "Gagal memuat: ${t.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        })
 
         val targetFile = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName)
 

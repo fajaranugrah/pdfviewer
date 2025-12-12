@@ -10,12 +10,14 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import android.util.AttributeSet
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.fajaranugrah.pdfviewer.model.PdfListener
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -27,9 +29,14 @@ class PdfView @JvmOverloads constructor(
 ) : WebView(context, attrs, defStyleAttr) {
 
     private var currentPdfFile: File? = null
+    private var listener: PdfListener? = null
 
     init {
         setupSettings()
+    }
+
+    fun setOnPdfListener(listener: PdfListener) {
+        this.listener = listener
     }
 
     private fun setupSettings() {
@@ -45,7 +52,29 @@ class PdfView @JvmOverloads constructor(
             useWideViewPort = true
             loadWithOverviewMode = true
         }
+        // JEMBATAN JAVASCRIPT
+        // Nama "AndroidInterface" ini akan dipanggil di HTML nanti
+        addJavascriptInterface(PdfInterface(), "AndroidInterface")
         webViewClient = PdfWebViewClient()
+    }
+
+    // CLASS PENGHUBUNG (BRIDGE)
+    private inner class PdfInterface {
+
+        @JavascriptInterface
+        fun onSuccess() {
+            // JS berjalan di background thread, kita harus lempar ke Main Thread
+            post {
+                listener?.onLoadSuccess()
+            }
+        }
+
+        @JavascriptInterface
+        fun onError(errorMessage: String) {
+            post {
+                listener?.onError(Throwable(errorMessage))
+            }
+        }
     }
 
     /**
