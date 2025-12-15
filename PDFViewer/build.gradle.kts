@@ -52,7 +52,7 @@ afterEvaluate {
 
                 groupId = "com.github.fajaranugrah"
                 artifactId = "PdfViewer"
-                version = "1.0.3"
+                version = "1.0.4"
             }
         }
     }

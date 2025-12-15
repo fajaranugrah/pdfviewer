@@ -83,26 +83,28 @@ class PdfView @JvmOverloads constructor(
     fun loadPdf(file: File) {
         this.currentPdfFile = file
 
-        // 1. Cek Permission dulu
-        if (checkStoragePermission()) {
-            // Jika OK, cek keberadaan file
+        // LOGIKA BARU:
+        // Boleh lanjut jika: (File Internal) ATAU (Punya Izin Eksternal)
+        val isSafeToRead = isInternalFile(file) || checkStoragePermission()
+
+        if (isSafeToRead) {
             if (file.exists()) {
                 val timestamp = System.currentTimeMillis()
-                //val fakeUrl = "https://aplikasiku.local/web/viewer.html?file=/document.pdf&t=$timestamp"
+                // Gunakan simple_viewer.html (yang terbaru)
                 val fakeUrl = "https://aplikasiku.local/web/simple_viewer.html?file=/document.pdf&t=$timestamp"
                 this.loadUrl(fakeUrl)
             } else {
                 showErrorHtml("File tidak ditemukan di path:<br><b>${file.absolutePath}</b>")
             }
         } else {
-            // Jika Izin Belum Ada, Tampilkan Pesan Error Cantik
+            // Jika file eksternal & belum ada izin
             showErrorHtml("""
-                <div style="text-align:center; padding-top: 50px;">
-                    <h2>Izin Akses Ditolak</h2>
-                    <p>Aplikasi membutuhkan izin penyimpanan untuk membaca file PDF ini.</p>
-                    <p style="color: red;">Silakan panggil fungsi <b>requestPermission()</b></p>
-                </div>
-            """.trimIndent())
+            <div style="text-align:center; padding-top: 50px;">
+                <h2>Izin Akses Ditolak</h2>
+                <p>File ini berada di Penyimpanan Eksternal.</p>
+                <p style="color: red;">Silakan panggil fungsi <b>requestPermission()</b></p>
+            </div>
+        """.trimIndent())
         }
     }
 
@@ -173,19 +175,21 @@ class PdfView @JvmOverloads constructor(
 
                 return try {
                     if (cleanPath.endsWith(".pdf")) {
-                        // KITA CEK LAGI PERMISSION DI SINI UNTUK KEAMANAN GANDA
-                        if (checkStoragePermission() && currentPdfFile != null && currentPdfFile!!.exists()) {
-                            //WebResourceResponse("application/pdf", "UTF-8", FileInputStream(currentPdfFile))
+                        // Cek apakah file valid
+                        if (currentPdfFile != null && currentPdfFile!!.exists()) {
 
-                            // PENTING: Jangan gunakan .use { } di sini!
-                            // WebView akan menutup stream ini secara otomatis nanti.
-                            val fileStream = FileInputStream(currentPdfFile)
+                            // LOGIKA BARU: Cek keamanan akses
+                            val isInternal = isInternalFile(currentPdfFile!!)
+                            val hasPermission = checkStoragePermission()
 
-                            return WebResourceResponse("application/pdf", "UTF-8", fileStream)
-                        } else {
-                            // Return null akan trigger error 404, atau bisa return response error custom
-                            null
+                            // Izinkan jika Internal ATAU punya Izin
+                            if (isInternal || hasPermission) {
+                                val fileStream = FileInputStream(currentPdfFile)
+                                return WebResourceResponse("application/pdf", "UTF-8", fileStream)
+                            }
                         }
+                        // Jika tidak lolos, return null (404)
+                        return null
                     } else {
                         val assetPath = "pdfjs/$cleanPath"
                         val mimeType = getMimeType(assetPath)
@@ -209,5 +213,17 @@ class PdfView @JvmOverloads constructor(
             fileName.endsWith(".bcmap") -> "application/octet-stream"
             else -> "application/octet-stream"
         }
+    }
+
+    /**
+     * Cek apakah file berada di penyimpanan internal aplikasi (Cache/Files)
+     * File di sini TIDAK BUTUH izin storage.
+     */
+    private fun isInternalFile(file: File): Boolean {
+        val cachePath = context.cacheDir.absolutePath
+        val filesPath = context.filesDir.absolutePath
+        val filePath = file.absolutePath
+
+        return filePath.startsWith(cachePath) || filePath.startsWith(filesPath)
     }
 }
