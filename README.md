@@ -1,22 +1,18 @@
 
-# 📄 Android Advanced PDF Viewer
-
 [![](https://jitpack.io/v/User/Repo.svg)](https://jitpack.io/#User/Repo) [![API](https://img.shields.io/badge/API-21%2B-brightgreen.svg?style=flat)](https://android-arsenal.com/api?level=21)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-A high-performance, lightweight Android PDF Viewer library built on top of **WebView** and a customized **PDF.js** engine. 
+A high-performance, **Hybrid Android PDF Viewer** library built on top of WebView and PDF.js.
 
-Unlike standard WebView implementations, this library solves common issues such as blurry text, memory crashes on large files, and lack of native gestures. It uses **Canvas Tiling** for high-resolution rendering and **Intersection Observer** for efficient memory management.
+It solves the complex problems of rendering PDFs on Android, including **Scoped Storage restrictions (Android 11+)**, **Authenticated URLs**, and **Client-Side PDF Generators** (HTML to PDF).
 
 ## ✨ Key Features
 
-* **🔍 Native Pinch-to-Zoom & Double Tap:** Smooth zooming experience using Android's native touch gestures (no laggy JavaScript zooming).
-* **📝 Text Selection & Copy:** Select and copy text directly from the PDF using a precise transparent text layer.
-* **🧩 Smart Canvas Tiling:** Renders pages in chunks (tiles) to bypass Android GPU texture limits (4096px), ensuring high-resolution images never get cut off.
-* **⚡ Lazy Loading:** Implements `IntersectionObserver` to render pages only when they enter the screen, keeping RAM usage extremely low even for large documents.
-* **📱 High DPI Support:** Automatically detects screen density to render crisp text and images.
-* **📂 Storage Support:** Supports reading files from Internal Storage and External Storage (Downloads), compatible with Android 11+ Scoped Storage.
-
+* **⚡ Hybrid Rendering Engine:** Automatically detects if a URL is a raw PDF or an HTML-based PDF Generator (e.g., `jspdf`, `html2canvas`). It intercepts the generated Blob and renders it natively.
+* **🛡️ Android 11+ Ready:** Solves `EACCES Permission Denied` errors on Scoped Storage devices by using a smart "Copy-to-Cache" strategy for external files.
+* **🌐 Universal Streaming:** Streams PDFs from any URL (HTTP/HTTPS) with support for **Cookies**, **User-Agents**, and **Authorization Headers**.
+* **🔒 Built-in Permission Handling:** Automatically checks for Storage Permissions. If denied, displays a user-friendly UI inside the viewer to request access without crashing.
+* **🔍 Native Experience:** Supports Pinch-to-Zoom, Text Selection, and High-Res Tiling (prevents blurry text on zoom).
 ---
 
 ## 🛠 Requirements
@@ -79,6 +75,31 @@ dependencies {
 
 -----
 
+⚙️ Configuration (AndroidManifest.xml)
+To support Android 11+ and HTTP URLs, add the following permissions and attributes to your AndroidManifest.xml:
+
+```xml
+<manifest xmlns:android="[http://schemas.android.com/apk/res/android](http://schemas.android.com/apk/res/android)"
+    package="com.your.package">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
+
+    <application
+    android:allowBackup="true"
+    android:requestLegacyExternalStorage="true"
+    android:usesCleartextTraffic="true">
+    
+    </application>
+</manifest>
+```
+
+-----
+
 ## 🚀 Usage
 
 ### 1\. Add to Layout XML
@@ -92,100 +113,88 @@ Add the `PdfView` component to your XML layout.
     android:layout_height="match_parent" />
 ```
 
-### 2\. Load PDF in Activity/Fragment
+### 2\. Setup Listener (Recommended)
 
+Handle success and error states (loading bars, toasts, etc.).
+
+```kotlin
+val pdfView = findViewById<PdfView>(R.id.pdfView)
+
+pdfView.setOnPdfListener(object : PdfListener {
+    override fun onLoadSuccess() {
+        progressBar.visibility = View.GONE
+        Log.d("PDF", "Document Loaded Successfully")
+    }
+
+    override fun onError(t: Throwable) {
+        progressBar.visibility = View.GONE
+        Toast.makeText(context, "Error: ${t.message}", Toast.LENGTH_LONG).show()
+        Log.e("PDF_ERROR", t.message.toString())
+    }
+})
+```
+
+### 3\. Loading Methods
+
+#### A\. Load from Local Storage (Robust)
+Handles Internal Storage, SD Cards, and Downloads folder. It automatically handles permissions and Android 11+ Scoped Storage restrictions.
 You can load a PDF file directly from a `File` object. The library handles the internal rendering logic.
 
 ```kotlin
-class MainActivity : AppCompatActivity() {
+// Example: Loading from Downloads folder
+val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "report.pdf")
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        val pdfView = findViewById<com.fajaranugrah.pdfviewer.PdfView>(R.id.pdfView)
-        val progressBar = findViewById<ProgressBar>(R.id.progressBar)
-
-        // 1. Set the Listener BEFORE loading the file
-        pdfView.setOnPdfListener(object : com.fajaranugrah.pdfviewer.model.PdfListener {
-            override fun onLoadSuccess() {
-                // Hide loading indicator
-                progressBar.visibility = View.GONE
-                Toast.makeText(this@MainActivity, "PDF Loaded Successfully!", Toast.LENGTH_SHORT).show()
-            }
-
-            override fun onError(t: Throwable) {
-                // Hide loading indicator
-                progressBar.visibility = View.GONE
-
-                // Handle specific errors
-                Log.e("PDF_VIEWER", "Error: ${t.message}")
-
-                if (t.message?.contains("Password") == true) {
-                    Toast.makeText(this@MainActivity, "Password Required!", Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(this@MainActivity, "Failed to load PDF: ${t.message}", Toast.LENGTH_LONG).show()
-                }
-            }
-        })
-
-        // 2. Prepare the File
-        val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "report.pdf")
-
-        // 3. Load the PDF
-        // The library handles permission checks automatically.
-        // If permission is missing, it will show an HTML error message in the WebView
-        // or you can implement 'requestStoragePermission' manually.
-        if (file.exists()) {
-            progressBar.visibility = View.VISIBLE
-            pdfView.loadPdf(file)
-        } else {
-            Toast.makeText(this, "File not found", Toast.LENGTH_SHORT).show()
-        }
-    }
-}
+// Just call loadPdf. The library handles permissions and file access automatically.
+pdfView.loadPdf(file)
 ```
 
------
-
-## 🔐 Permissions
-
-The library includes a helper method to check for storage permissions, but you must ensure your app has the necessary rights to access the file path.
-
-**For Android 11+ (API 30+):**
-If you are accessing files outside app-specific storage (like the Downloads folder), you may need `MANAGE_EXTERNAL_STORAGE`.
-
-**For Android 10 and below:**
-Ensure you have `READ_EXTERNAL_STORAGE` permission.
-
-**Helper Function included in Library:**
+#### B\. Load from Remote URL (Stream)
+Supports direct links (.pdf) and auto-detects HTML-based PDF generators.
 
 ```kotlin
-// You can check permission status using the library's built-in helper
-if (pdfView.checkStoragePermission()) {
-    pdfView.loadPdf(file)
-} else {
-    // This will open the Settings page for All Files Access (Android 11+)
-    // or request standard permission (Android <11)
-    pdfView.requestStoragePermission(this)
-}
+// 1. Standard PDF URL
+pdfView.loadPdfStream("[https://example.com/document.pdf](https://example.com/document.pdf)")
+
+// 2. HTML PDF Generator (e.g., Reports, Invoices)
+// The library will automatically intercept the blob and render it!
+pdfView.loadPdfStream("[https://api.myserver.com/generate/invoice/123](https://api.myserver.com/generate/invoice/123)")
+```
+
+#### C\. Remote URL with Authentication (Headers)
+Pass a Map of headers for Bearer Tokens, Cookies, or Basic Auth.
+
+```kotlin
+val headers = mapOf(
+    "Authorization" to "Bearer eyJhbGciOiJIUz...",
+    "User-Agent" to "MyAndroidApp/1.0",
+    "Cookie" to "session_id=12345"
+)
+
+pdfView.loadPdfStream("[https://secure-api.com/v1/statement](https://secure-api.com/v1/statement)", headers)
 ```
 
 -----
 
-## ⚠️ Important Configuration
+## 🧠 How it Works (Under the Hood)
 
-To ensure smooth scrolling and prevent OutOfMemory errors on large PDFs, please enable `largeHeap` and `hardwareAccelerated` in your **app's** `AndroidManifest.xml`:
+### 1\. The EACCES Fix (Android 11+)
+   WebView is sandboxed and often cannot read files directly from /storage/emulated/0/Download/ even with permissions.
 
-```xml
-<application
-    android:largeHeap="true"
-    android:hardwareAccelerated="true"
-    ... >
-```
+Solution: This library automatically copies the target file to the app's Internal Cache (/data/user/0/...) in a background thread and then renders the cached copy. This ensures 100% compatibility.
 
+### 2\. The Hybrid Interceptor
+   Some URLs return an HTML page that generates a PDF using JavaScript (e.g., jspdf) instead of a PDF binary.
+
+Solution: The library detects text/html Content-Type. It switches to "Intercept Mode", lets the JavaScript run, captures the generated blob: URL, converts it to a file, and reloads the viewer.
+
+-----
 -----
 
 ## 🤝 Contributing
 
 Contributions are welcome\! If you find a bug or want to improve the tiling algorithm, please fork the repository and submit a Pull Request.
+
+-----
+
+## 📄 License
+This project is licensed under the MIT License.

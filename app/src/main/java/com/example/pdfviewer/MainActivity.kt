@@ -1,7 +1,5 @@
 package com.example.pdfviewer
 
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Environment
 import androidx.appcompat.app.AppCompatActivity
@@ -11,10 +9,6 @@ import com.fajaranugrah.pdfviewer.model.PdfListener
 import java.io.File
 
 class MainActivity : AppCompatActivity() {
-
-    private lateinit var pdfView: PdfView
-    private lateinit var targetFile: File
-    private val PDF_PERMISSION_CODE = 999
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,33 +43,36 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        val targetFile = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName)
+        val targetFile = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            fileName
+        )
 
         pdfView.loadPdf(targetFile)
 
-        if (!pdfView.checkStoragePermission()) {
-            pdfView.requestStoragePermission(this, PDF_PERMISSION_CODE)
-        }
-    }
+        // only url
+        //pdfView.loadPdfStream("https://example-files.online-convert.com/document/pdf/example.pdf")
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PDF_PERMISSION_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                pdfView.loadPdf(targetFile)
-            } else {
-                Toast.makeText(this, "Izin Ditolak!", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
+        // url with Bearer Token
+        /*val headers = mapOf(
+            "Authorization" to "Bearer eyJhbGciOiJIUz...",
+            "User-Agent" to "MyAndroidApp/1.0",
+            "Cookie" to "session_id=12345"
+        )*/
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == PDF_PERMISSION_CODE) {
-            // Cek lagi apakah izin sudah diberikan
-            if (pdfView.checkStoragePermission()) {
-                pdfView.loadPdf(targetFile)
-            }
-        }
+        //pdfView.loadPdfStream("[https://secure-api.com/v1/statement](https://secure-api.com/v1/statement)", headers)
+
+        // url with Basic Auth (Username & Password)
+        //val credentials = "admin:rahasia123"
+        /*val base64Credentials = android.util.Base64.encodeToString(
+            credentials.toByteArray(),
+            android.util.Base64.NO_WRAP
+        )*/
+
+        /*val headers = mapOf(
+            "Authorization" to "Basic $base64Credentials"
+        )*/
+
+        //pdfView.loadPdfFromUrl("https://myserver.com/protected/report.pdf", headers)
     }
 }
