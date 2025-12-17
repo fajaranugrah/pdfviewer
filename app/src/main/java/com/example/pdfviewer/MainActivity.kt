@@ -19,6 +19,10 @@ class MainActivity : AppCompatActivity() {
         val fileName = "sample.pdf"
 
         pdfView.setOnPdfListener(object : PdfListener {
+            override fun onLoad() {
+                Toast.makeText(this@MainActivity, "Start Load Data", Toast.LENGTH_SHORT).show()
+            }
+
             override fun onLoadSuccess() {
                 // Sembunyikan Loading Bar / ProgressBar jika ada
                 //progressBar.visibility = View.GONE

@@ -28,6 +28,21 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
+/**
+ * Created by
+ * Fajar Anugrah Ramadhan License
+ * ===============================================
+ *
+ * Copyright (C).
+ * All right reserved
+ *
+ * Name      : Fajar Anugrah Ramadhan
+ * E-mail    : fajarconan@gmail.com
+ * Github    : https://github.com/fajaranugrah
+ * LinkedIn  : linkedin.com/in/fajar-anugrah
+ *
+ */
+
 class PdfView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
@@ -231,6 +246,34 @@ class PdfView @JvmOverloads constructor(
                 }
             }
             return super.shouldInterceptRequest(view, request)
+        }
+
+        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+            super.onPageStarted(view, url, favicon)
+            post { listener?.onLoad() }
+        }
+
+        override fun onPageFinished(view: WebView?, url: String?) {
+            super.onPageFinished(view, url)
+            post { listener?.onLoadSuccess() }
+        }
+
+        override fun onReceivedError(
+            view: WebView?,
+            request: WebResourceRequest?,
+            error: WebResourceError?
+        ) {
+            super.onReceivedError(view, request, error)
+            post { listener?.onError(Throwable("${error?.errorCode} + ${error?.description}")) }
+        }
+
+        override fun onReceivedHttpError(
+            view: WebView?,
+            request: WebResourceRequest?,
+            errorResponse: WebResourceResponse?
+        ) {
+            super.onReceivedHttpError(view, request, errorResponse)
+            post { listener?.onError(Throwable("${errorResponse?.statusCode} + ${errorResponse?.data.toString()}")) }
         }
     }
 

@@ -115,12 +115,17 @@ Add the `PdfView` component to your XML layout.
 
 ### 2\. Setup Listener (Recommended)
 
-Handle success and error states (loading bars, toasts, etc.).
+Handle load, success and error states (loading bars, toasts, etc.).
 
 ```kotlin
 val pdfView = findViewById<PdfView>(R.id.pdfView)
 
 pdfView.setOnPdfListener(object : PdfListener {
+    override fun onLoad() {
+        progressBar.visibility = View.GONE
+        Log.d("PDF", "Document Start Load")
+    }
+    
     override fun onLoadSuccess() {
         progressBar.visibility = View.GONE
         Log.d("PDF", "Document Loaded Successfully")
